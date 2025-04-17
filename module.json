@@ -12,7 +12,8 @@
     "options": {
         "guiName": "<font color='#7558cd'>Packet Logger</font>",
         "cliName": "packet-logger-tera",
-        "settingsVersion": 1
+        "settingsVersion": 1,
+		"settingsMigrator": "settings_migrator.js"
     },
     "disableAutoUpdate": false,
     "disabled": false
