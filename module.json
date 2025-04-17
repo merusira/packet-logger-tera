@@ -4,7 +4,7 @@
     "author": "<font color='#297229'>merusira</font>",
     "description": "Logs all incoming and outgoing network packets to the chat and parses to a file. Includes a command to filter packets.",
     "version": "<font color='#800000'>1.0.1</font>",
-    "servers": ["https://raw.githubusercontent.com/merusira/packet-logger-tera/master/manifest.json"],
+    "servers": ["https://raw.githubusercontent.com/merusira/packet-logger-tera/master/"],
     "supportUrl": "https://github.com/merusira/packet-logger-tera/issues",
     "dependencies": {
         "command": "https://raw.githubusercontent.com/tera-toolbox/command/master/module.json"
