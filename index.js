@@ -26,17 +26,24 @@ module.exports = function PacketLogger(mod) {
     let logStream = null;
     
     // Load settings
-    const { packetFilters, logFakePackets, logToGame, logToFile } = mod.settings;
+    const { packetFilters, logFakePackets, logPktToGame, logPktToFile, logItemSkillToGame, logItemSkillToFile } = mod.settings;
     
     const logDir = path.join(__dirname, 'logs');
     const logFileName = `packets_${Date.now()}.log`;
     const logFilePath = path.join(logDir, logFileName);
+    
+    // Create a separate log file for item and skill usage
+    const itemSkillLogFileName = `item_skill_log_${Date.now()}.log`;
+    const itemSkillLogFilePath = path.join(logDir, itemSkillLogFileName);
+    let itemSkillLogStream = null;
 
     // --- Initialization ---
     try {
         ensureDirectoryExistence(logFilePath);
         logStream = fs.createWriteStream(logFilePath, { flags: 'a' }); // Append mode
+        itemSkillLogStream = fs.createWriteStream(itemSkillLogFilePath, { flags: 'a' }); // Append mode
         mod.log(`Packet log file created: ${logFilePath}`);
+        mod.log(`Item/Skill log file created: ${itemSkillLogFilePath}`);
     } catch (e) {
         mod.error('Failed to create log directory or file stream.');
         mod.error(e);
@@ -66,12 +73,12 @@ module.exports = function PacketLogger(mod) {
         const fakePrefix = fake ? '[FAKE] ' : '';
 
         // 1. In-Game Logging
-        if (mod.settings.logToGame) {
+        if (mod.settings.logPktToGame) {
             command.message(`${fakePrefix}${direction} | ${name} (${code})`);
         }
 
         // 2. File Logging
-        if (mod.settings.logToFile && logStream) {
+        if (mod.settings.logPktToFile && logStream) {
             let logLine = `${timestamp} | ${fakePrefix}${direction} | ${code} | ${name}`;
             let event = null;
 
@@ -102,6 +109,69 @@ module.exports = function PacketLogger(mod) {
 
             logStream.write(logLine + '\n');
         }
+    });
+
+    // Item Usage
+    mod.hook('C_USE_ITEM', 3, event => {
+        if (mod.settings.logItemSkillToGame || mod.settings.logItemSkillToFile) {
+            // Get item name if possible
+            let itemName = "Unknown Item";
+            try {
+                // Try to get item data from game state
+                if (mod.game.data && mod.game.data.items) {
+                    const item = mod.game.data.items.get(event.id);
+                    if (item && item.name) {
+                        itemName = item.name;
+                    }
+                }
+            } catch (e) {
+                mod.warn(`Failed to get item name for ID ${event.id}: ${e.message}`);
+            }
+
+            // Log to game chat
+            if (mod.settings.logItemSkillToGame) {
+                command.message(`Used Item: ${itemName} (ID: ${event.id})`);
+            }
+            
+            // Log to file
+            if (mod.settings.logItemSkillToFile && itemSkillLogStream) {
+                const timestamp = new Date().toISOString();
+                itemSkillLogStream.write(`${timestamp} | ITEM | ID: ${event.id} | Name: ${itemName}\n`);
+            }
+        }
+        return true;
+    });
+
+    // Skill Usage
+    mod.hook('C_START_SKILL', 7, event => {
+        if (mod.settings.logItemSkillToGame || mod.settings.logItemSkillToFile) {
+            // Parse skill ID to get base skill
+            const skillId = event.skill.id;
+            const skillBaseId = Math.floor((skillId - 0x4000000) / 10000);
+            
+            // Get skill name if possible
+            let skillName = "Unknown Skill";
+            try {
+                // Try to get skill name from system message
+                // This is a simplified approach - in a full implementation, you might want to 
+                // query skill data from the game client or use a predefined mapping
+                skillName = `Skill ${skillBaseId}`;
+            } catch (e) {
+                mod.warn(`Failed to get skill name for ID ${skillId}: ${e.message}`);
+            }
+
+            // Log to game chat
+            if (mod.settings.logItemSkillToGame) {
+                command.message(`Used Skill: ${skillName} (ID: ${skillId})`);
+            }
+            
+            // Log to file
+            if (mod.settings.logItemSkillToFile && itemSkillLogStream) {
+                const timestamp = new Date().toISOString();
+                itemSkillLogStream.write(`${timestamp} | SKILL | ID: ${skillId} | Base ID: ${skillBaseId} | Name: ${skillName}\n`);
+            }
+        }
+        return true;
     });
 
     // --- Command Definition ---
@@ -141,13 +211,24 @@ module.exports = function PacketLogger(mod) {
     });
     
     command.add('pktloggame', () => {
-        mod.settings.logToGame = !mod.settings.logToGame;
-        command.message(`Logging to in-game text ${mod.settings.logToGame ? 'enabled' : 'disabled'}.`);
+        mod.settings.logPktToGame = !mod.settings.logPktToGame;
+        command.message(`Logging packets to in-game text ${mod.settings.logPktToGame ? 'enabled' : 'disabled'}.`);
     });
     
     command.add('pktlogfile', () => {
-        mod.settings.logToFile = !mod.settings.logToFile;
-        command.message(`Logging to file ${mod.settings.logToFile ? 'enabled' : 'disabled'}.`);
+        mod.settings.logPktToFile = !mod.settings.logPktToFile;
+        command.message(`Logging packets to file ${mod.settings.logPktToFile ? 'enabled' : 'disabled'}.`);
+    });
+
+    // Commands to toggle item/skill ID logging
+    command.add('itemskillgame', () => {
+        mod.settings.logItemSkillToGame = !mod.settings.logItemSkillToGame;
+        command.message(`Logging item/skill to in-game text ${mod.settings.logItemSkillToGame ? 'enabled' : 'disabled'}.`);
+    });
+    
+    command.add('itemskillfile', () => {
+        mod.settings.logItemSkillToFile = !mod.settings.logItemSkillToFile;
+        command.message(`Logging item/skill to file ${mod.settings.logItemSkillToFile ? 'enabled' : 'disabled'}.`);
     });
 
     // --- Cleanup ---
@@ -156,9 +237,15 @@ module.exports = function PacketLogger(mod) {
             logStream.end();
             mod.log('Packet log stream closed.');
         }
+        if (itemSkillLogStream) {
+            itemSkillLogStream.end();
+            mod.log('Item/Skill log stream closed.');
+        }
         command.remove('pktlog');
         command.remove('pktlogfake');
         command.remove('pktloggame');
         command.remove('pktlogfile');
+        command.remove('itemskillgame');
+        command.remove('itemskillfile');
     };
 };

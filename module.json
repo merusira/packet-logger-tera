@@ -1,18 +1,18 @@
 {
-    "name": "packet-logger-tera",
-    "title": "Packet Logger",
+    "name": "Tera-Pkt-Item-Skill-Logger",
+    "title": "Tera Pkt Item Skill Logger",
     "author": "<font color='#297229'>merusira</font>",
-    "description": "Logs all incoming and outgoing network packets to the chat and parses to a file. Includes a command to filter packets.",
-    "version": "<font color='#800000'>1.0.1</font>",
-    "servers": ["https://raw.githubusercontent.com/merusira/packet-logger-tera/master/"],
-    "supportUrl": "https://github.com/merusira/packet-logger-tera/issues",
+    "description": "Logs all incoming and outgoing network packets to the chat and parses to a file. Includes item and skill logging with names and IDs.",
+    "version": "<font color='#800000'>1.1.0</font>",
+    "servers": ["https://raw.githubusercontent.com/merusira/tera-pkt-item-skill-logger/master/"],
+    "supportUrl": "https://github.com/merusira/tera-pkt-item-skill-logger/issues",
     "dependencies": {
         "command": "https://raw.githubusercontent.com/tera-toolbox/command/master/module.json"
     },
     "options": {
-        "guiName": "<font color='#7558cd'>Packet Logger</font>",
-        "cliName": "packet-logger-tera",
-        "settingsVersion": 1,
+        "guiName": "<font color='#7558cd'>Pkt Item Skill Logger</font>",
+        "cliName": "pkt-item-skill-logger",
+        "settingsVersion": 2,
 		"settingsMigrator": "settings_migrator.js"
     },
     "disableAutoUpdate": false,

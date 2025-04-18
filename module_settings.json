@@ -1,0 +1,11 @@
+{
+    "version": 1,
+    "data": {
+        "packetFilters": [],
+        "logFakePackets": false,
+        "logPktToGame": true,
+        "logPktToFile": true,
+        "logItemSkillToGame": true,
+        "logItemSkillToFile": true
+    }
+}
