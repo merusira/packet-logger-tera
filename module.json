@@ -11,7 +11,7 @@
     },
     "options": {
         "guiName": "<font color='#7558cd'>Pkt Item Skill Logger</font>",
-        "cliName": "pkt-item-skill-logger",
+        "cliName": "<font color='#7558cd'>pkt-item-skill-logger</font>",
         "settingsVersion": 2,
 		"settingsMigrator": "settings_migrator.js"
     },
