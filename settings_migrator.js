@@ -6,7 +6,8 @@ const DefaultSettings = {
     "logPktToGame": true,        // Whether to log packets to in-game text
     "logPktToFile": true,        // Whether to log packets to file
     "logItemSkillToGame": true,  // Whether to log item and skill usage to in-game text
-    "logItemSkillToFile": true   // Whether to log item and skill usage to file
+    "logItemSkillToFile": true,  // Whether to log item and skill usage to file
+    "debug": false               // Whether to enable debug logging
 }
 
 module.exports = function MigrateSettings(from_ver, to_ver, settings) {

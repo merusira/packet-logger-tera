@@ -25,8 +25,14 @@ module.exports = function PacketLogger(mod) {
     const command = mod.require ? mod.require.command : mod.command; // Handle legacy/core mod loading
     let logStream = null;
     
-    // Load settings
-    const { packetFilters, logFakePackets, logPktToGame, logPktToFile, logItemSkillToGame, logItemSkillToFile } = mod.settings;
+    // Reference settings directly instead of destructuring to ensure we always use the latest values
+    
+    // Helper function for debug logging
+    function debugLog(message) {
+        if (mod.settings.debug) {
+            mod.log(message);
+        }
+    }
     
     const logDir = path.join(__dirname, 'logs');
     const logFileName = `packets_${Date.now()}.log`;
@@ -110,9 +116,13 @@ module.exports = function PacketLogger(mod) {
             logStream.write(logLine + '\n');
         }
     });
-
-    // Item Usage
-    mod.hook('C_USE_ITEM', 3, event => {
+// Item Usage
+mod.hook('C_USE_ITEM', 3, { order: 1000, filter: { fake: null } }, event => {
+    // Log that we received an item use packet for debugging
+    const fakeStatus = event.fake ? 'FAKE' : 'REAL';
+    debugLog(`Received ${fakeStatus} C_USE_ITEM packet: ${JSON.stringify(event, bigIntReplacer)}`);
+    
+        
         if (mod.settings.logItemSkillToGame || mod.settings.logItemSkillToFile) {
             // Get item name if possible
             let itemName = "Unknown Item";
@@ -130,20 +140,30 @@ module.exports = function PacketLogger(mod) {
 
             // Log to game chat
             if (mod.settings.logItemSkillToGame) {
-                command.message(`Used Item: ${itemName} (ID: ${event.id})`);
+                try {
+                    debugLog(`Attempting to log ${fakeStatus} item to chat: ${itemName} (ID: ${event.id})`);
+                    command.message(`${fakeStatus} C_USE_ITEM: ${itemName} (ID: ${event.id})`);
+                    debugLog('Successfully logged item to chat');
+                } catch (e) {
+                    mod.error(`Failed to log item to chat: ${e.message}`);
+                }
             }
             
             // Log to file
             if (mod.settings.logItemSkillToFile && itemSkillLogStream) {
                 const timestamp = new Date().toISOString();
-                itemSkillLogStream.write(`${timestamp} | ITEM | ID: ${event.id} | Name: ${itemName}\n`);
+                itemSkillLogStream.write(`${timestamp} | C_USE_ITEM | ID: ${event.id} | Name: ${itemName}\n`);
             }
         }
         return true;
     });
 
-    // Skill Usage
-    mod.hook('C_START_SKILL', 7, event => {
+    // Skill Usage - Use high order to ensure it runs after other mods
+    mod.hook('C_START_SKILL', 7, { order: 1000, filter: { fake: null } }, event => {
+        // Log that we received a skill packet for debugging
+        const fakeStatus = event.fake ? 'FAKE' : 'REAL';
+        debugLog(`Received ${fakeStatus} C_START_SKILL packet: ${JSON.stringify(event, bigIntReplacer)}`);
+        
         if (mod.settings.logItemSkillToGame || mod.settings.logItemSkillToFile) {
             // Parse skill ID to get base skill
             const skillId = event.skill.id;
@@ -162,13 +182,175 @@ module.exports = function PacketLogger(mod) {
 
             // Log to game chat
             if (mod.settings.logItemSkillToGame) {
-                command.message(`Used Skill: ${skillName} (ID: ${skillId})`);
+                try {
+                    debugLog(`Attempting to log ${fakeStatus} skill to chat: ${skillName} (ID: ${skillId})`);
+                    command.message(`${fakeStatus} C_START_SKILL: ${skillName} (ID: ${skillId})`);
+                    debugLog('Successfully logged skill to chat');
+                } catch (e) {
+                    mod.error(`Failed to log skill to chat: ${e.message}`);
+                }
             }
             
             // Log to file
             if (mod.settings.logItemSkillToFile && itemSkillLogStream) {
                 const timestamp = new Date().toISOString();
-                itemSkillLogStream.write(`${timestamp} | SKILL | ID: ${skillId} | Base ID: ${skillBaseId} | Name: ${skillName}\n`);
+                itemSkillLogStream.write(`${timestamp} | C_START_SKILL | ID: ${skillId} | Base ID: ${skillBaseId} | Name: ${skillName}\n`);
+            }
+        }
+        return true;
+    });
+    
+    // Additional Skill Usage Hook - for press-type skills
+    mod.hook('C_PRESS_SKILL', 4, { order: 1000, filter: { fake: null } }, event => {
+        // Log that we received a press skill packet for debugging
+        const fakeStatus = event.fake ? 'FAKE' : 'REAL';
+        debugLog(`Received ${fakeStatus} C_PRESS_SKILL packet: ${JSON.stringify(event, bigIntReplacer)}`);
+        
+        if (mod.settings.logItemSkillToGame || mod.settings.logItemSkillToFile) {
+            // Parse skill ID to get base skill
+            const skillId = event.skill.id;
+            const skillBaseId = Math.floor((skillId - 0x4000000) / 10000);
+            
+            // Get skill name if possible
+            let skillName = "Unknown Press Skill";
+            try {
+                skillName = `Press Skill ${skillBaseId}`;
+            } catch (e) {
+                mod.warn(`Failed to get skill name for ID ${skillId}: ${e.message}`);
+            }
+
+            // Log to game chat
+            if (mod.settings.logItemSkillToGame) {
+                try {
+                    debugLog(`Attempting to log ${fakeStatus} press skill to chat: ${skillName} (ID: ${skillId})`);
+                    command.message(`${fakeStatus} C_PRESS_SKILL: ${skillName} (ID: ${skillId})`);
+                    debugLog('Successfully logged press skill to chat');
+                } catch (e) {
+                    mod.error(`Failed to log press skill to chat: ${e.message}`);
+                }
+            }
+            
+            // Log to file
+            if (mod.settings.logItemSkillToFile && itemSkillLogStream) {
+                const timestamp = new Date().toISOString();
+                itemSkillLogStream.write(`${timestamp} | C_PRESS_SKILL | ID: ${skillId} | Base ID: ${skillBaseId} | Name: ${skillName}\n`);
+            }
+        }
+        return true;
+    });
+    
+    // Additional Skill Usage Hook - for targeted skills
+    mod.hook('C_START_TARGETED_SKILL', 7, { order: 1000, filter: { fake: null } }, event => {
+        // Log that we received a targeted skill packet for debugging
+        const fakeStatus = event.fake ? 'FAKE' : 'REAL';
+        debugLog(`Received ${fakeStatus} C_START_TARGETED_SKILL packet: ${JSON.stringify(event, bigIntReplacer)}`);
+        
+        if (mod.settings.logItemSkillToGame || mod.settings.logItemSkillToFile) {
+            // Parse skill ID to get base skill
+            const skillId = event.skill.id;
+            const skillBaseId = Math.floor((skillId - 0x4000000) / 10000);
+            
+            // Get skill name if possible
+            let skillName = "Unknown Targeted Skill";
+            try {
+                skillName = `Targeted Skill ${skillBaseId}`;
+            } catch (e) {
+                mod.warn(`Failed to get skill name for ID ${skillId}: ${e.message}`);
+            }
+
+            // Log to game chat
+            if (mod.settings.logItemSkillToGame) {
+                try {
+                    debugLog(`Attempting to log ${fakeStatus} targeted skill to chat: ${skillName} (ID: ${skillId})`);
+                    command.message(`${fakeStatus} C_START_TARGETED_SKILL: ${skillName} (ID: ${skillId})`);
+                    debugLog('Successfully logged targeted skill to chat');
+                } catch (e) {
+                    mod.error(`Failed to log targeted skill to chat: ${e.message}`);
+                }
+            }
+            
+            // Log to file
+            if (mod.settings.logItemSkillToFile && itemSkillLogStream) {
+                const timestamp = new Date().toISOString();
+                itemSkillLogStream.write(`${timestamp} | C_START_TARGETED_SKILL | ID: ${skillId} | Base ID: ${skillBaseId} | Name: ${skillName}\n`);
+            }
+        }
+        return true;
+    });
+    
+    // Additional Skill Usage Hook - for combo instant skills
+    mod.hook('C_START_COMBO_INSTANT_SKILL', 6, { order: 1000, filter: { fake: null } }, event => {
+        // Log that we received a combo instant skill packet for debugging
+        const fakeStatus = event.fake ? 'FAKE' : 'REAL';
+        debugLog(`Received ${fakeStatus} C_START_COMBO_INSTANT_SKILL packet: ${JSON.stringify(event, bigIntReplacer)}`);
+        
+        if (mod.settings.logItemSkillToGame || mod.settings.logItemSkillToFile) {
+            // Parse skill ID to get base skill
+            const skillId = event.skill.id;
+            const skillBaseId = Math.floor((skillId - 0x4000000) / 10000);
+            
+            // Get skill name if possible
+            let skillName = "Unknown Combo Skill";
+            try {
+                skillName = `Combo Skill ${skillBaseId}`;
+            } catch (e) {
+                mod.warn(`Failed to get skill name for ID ${skillId}: ${e.message}`);
+            }
+
+            // Log to game chat
+            if (mod.settings.logItemSkillToGame) {
+                try {
+                    debugLog(`Attempting to log ${fakeStatus} combo skill to chat: ${skillName} (ID: ${skillId})`);
+                    command.message(`${fakeStatus} C_START_COMBO_INSTANT_SKILL: ${skillName} (ID: ${skillId})`);
+                    debugLog('Successfully logged combo skill to chat');
+                } catch (e) {
+                    mod.error(`Failed to log combo skill to chat: ${e.message}`);
+                }
+            }
+            
+            // Log to file
+            if (mod.settings.logItemSkillToFile && itemSkillLogStream) {
+                const timestamp = new Date().toISOString();
+                itemSkillLogStream.write(`${timestamp} | C_START_COMBO_INSTANT_SKILL | ID: ${skillId} | Base ID: ${skillBaseId} | Name: ${skillName}\n`);
+            }
+        }
+        return true;
+    });
+    
+    // Additional Skill Usage Hook - for no-timeline skills
+    mod.hook('C_NOTIMELINE_SKILL', 3, { order: 1000, filter: { fake: null } }, event => {
+        // Log that we received a no-timeline skill packet for debugging
+        const fakeStatus = event.fake ? 'FAKE' : 'REAL';
+        debugLog(`Received ${fakeStatus} C_NOTIMELINE_SKILL packet: ${JSON.stringify(event, bigIntReplacer)}`);
+        
+        if (mod.settings.logItemSkillToGame || mod.settings.logItemSkillToFile) {
+            // Parse skill ID to get base skill
+            const skillId = event.skill.id;
+            const skillBaseId = Math.floor((skillId - 0x4000000) / 10000);
+            
+            // Get skill name if possible
+            let skillName = "Unknown NoTimeline Skill";
+            try {
+                skillName = `NoTimeline Skill ${skillBaseId}`;
+            } catch (e) {
+                mod.warn(`Failed to get skill name for ID ${skillId}: ${e.message}`);
+            }
+
+            // Log to game chat
+            if (mod.settings.logItemSkillToGame) {
+                try {
+                    debugLog(`Attempting to log ${fakeStatus} no-timeline skill to chat: ${skillName} (ID: ${skillId})`);
+                    command.message(`${fakeStatus} C_NOTIMELINE_SKILL: ${skillName} (ID: ${skillId})`);
+                    debugLog('Successfully logged no-timeline skill to chat');
+                } catch (e) {
+                    mod.error(`Failed to log no-timeline skill to chat: ${e.message}`);
+                }
+            }
+            
+            // Log to file
+            if (mod.settings.logItemSkillToFile && itemSkillLogStream) {
+                const timestamp = new Date().toISOString();
+                itemSkillLogStream.write(`${timestamp} | C_NOTIMELINE_SKILL | ID: ${skillId} | Base ID: ${skillBaseId} | Name: ${skillName}\n`);
             }
         }
         return true;
@@ -220,7 +402,6 @@ module.exports = function PacketLogger(mod) {
         command.message(`Logging packets to file ${mod.settings.logPktToFile ? 'enabled' : 'disabled'}.`);
     });
 
-    // Commands to toggle item/skill ID logging
     command.add('itemskillgame', () => {
         mod.settings.logItemSkillToGame = !mod.settings.logItemSkillToGame;
         command.message(`Logging item/skill to in-game text ${mod.settings.logItemSkillToGame ? 'enabled' : 'disabled'}.`);
@@ -229,6 +410,11 @@ module.exports = function PacketLogger(mod) {
     command.add('itemskillfile', () => {
         mod.settings.logItemSkillToFile = !mod.settings.logItemSkillToFile;
         command.message(`Logging item/skill to file ${mod.settings.logItemSkillToFile ? 'enabled' : 'disabled'}.`);
+    });
+    
+    command.add('pktdebug', () => {
+        mod.settings.debug = !mod.settings.debug;
+        command.message(`Debug logging ${mod.settings.debug ? 'enabled' : 'disabled'}.`);
     });
 
     // --- Cleanup ---
@@ -247,5 +433,7 @@ module.exports = function PacketLogger(mod) {
         command.remove('pktlogfile');
         command.remove('itemskillgame');
         command.remove('itemskillfile');
+        command.remove('pktdebug');
+        command.remove('pktdebug');
     };
 };
